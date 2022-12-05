@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	
+<mapper namespace="com.ssafy.myhome.model.dao.UserDao">
+
+<resultMap type="user" id="userdao">
+	<result column="user_id" property="userId"/>
+	<result column="user_password" property="userPassword"/>
+	<result column="user_name" property="userName"/>
+	<result column="email_id" property="emailId"/>
+	<result column="email_domain" property="emailDomain"/>
+	<result column="join_date" property="joinDate"/>	
+</resultMap>
+
+	<insert id="insertUser" parameterType="user">
+		insert ignore into user (user_id,
+		user_password, user_name,email_id, email_domain,join_date)
+		values(#{userId},#{userPassword},#{userName},#{emailId},#{emailDomain},now())
+	</insert>
+	<update id="updateUser" parameterType="user">
+		UPDATE user SET
+		user_name =#{userName}, user_password = #{userPassword}, email_id = #{emailId},
+		email_domain = #{emailDomain} WHERE user_id = #{userId}
+	</update>
+	<delete id="deleteUser" parameterType="string">
+		delete from user where
+		user_id = #{userId}
+	</delete>
+	
+	<select id="selectUserByIdPW" parameterType="user" resultMap="userdao">
+		select user_id, user_password, user_name, email_id,email_domain, join_date 
+		from user 
+		where user_id = #{userId} and user_password = #{userPassword}
+	</select>
+	
+	<select id="selectUserByUserId" parameterType="string" resultMap ="userdao">
+		select user_id, user_password, user_name, email_id,email_domain, join_date 
+		from user where user_id = #{userId}
+	</select>
+	<select id="selectAll" resultMap="userdao">
+		select *
+		from user
+	</select>
+	
+	<select id="getRefreshToken" parameterType="string" resultType="string">
+		select token
+		from user
+		where user_id = #{userId}
+	</select>
+	
+	<update id="saveRefreshToken" parameterType="map">
+		update user
+		set token = #{token}
+		where user_id = #{userid}
+	</update>
+	
+	<update id="deleteRefreshToken" parameterType="map">
+		update user
+		set token = #{token, jdbcType=VARCHAR}
+		where user_id = #{userid}
+	</update>
+	
+	<insert id="insertMailAuth" parameterType="string">
+		insert into mailauth
+		values (#{code},now()+ INTERVAL 3 MINUTE)
+	</insert>
+	
+	<select id="checkMailAuth" parameterType="string" resultType="map">
+		select reg_time
+		from mailauth 
+		where code = #{code}
+	</select>
+	
+	<delete id="deleteMailAuth" parameterType="string">
+		delete from mailauth
+		where code = #{code}
+	</delete>
+	
+	<select id="selectUserByIdEmail" parameterType="map" resultMap="userdao">
+		select *
+		from user
+		where user_id = #{userId} and email_id = #{emailId} and email_domain = #{emailDomain}
+	</select>
+	
+	<update id="updatePassword" parameterType="map">
+		update user 
+		set user_password = #{userPassword}
+		where user_id=#{userId}
+	</update>
+</mapper>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.myhome.model.dao.AptDao">
+	<select id="selectSido" resultType="apt">
+		select *
+		from sidocode
+		order by code
+	</select>
+
+	<select id="selectGugun" parameterType="string" resultType="apt">
+		select * from
+		guguncode
+		where code like concat(#{code}, '%') and name is not null
+		order by name
+	</select>
+	<select id="selectDong" parameterType="string" resultType="apt">
+		select *
+		from dongcode
+		where code like concat(#{code}, '%') and name is not null
+		order by name
+	</select>
+	<select id="selectHouseInfoByCode" parameterType="string" resultType="houseInfo">
+		select * 
+		from houseinfo 
+		where dongCode = #{code}
+	</select>
+	<select id="selectHouseDealByCode" parameterType="string" resultType="houseDeal">
+		select
+		housedeal.*, lat, lng, apartmentName 
+		from housedeal, houseinfo 
+		where housedeal.aptCode = houseinfo.aptCode and housedeal.aptCode = #{aptcode}
+		order by dealyear desc, dealmonth desc
+	</select>
+	
+	<insert id="insertInterestArea" parameterType="InterestArea">
+		insert into interest_area ( user_id, dongCode )
+					select #{user_id} ,#{dongCode}
+					
+	</insert>
+	
+	<select id="selectInterestAreaByUserId" parameterType="String" resultType="InterestArea">
+		select distinct user_id, dongCode
+		from interest_area
+		where user_id=#{user_id}
+	</select>
+	
+	<select id="selectHouseDealByDate" parameterType="map" resultType="houseDeal">
+		select *
+			from housedeal e
+				where (
+			        select date_format(
+                    concat(e.dealYear,
+                       if(e.dealMonth &lt; 10,concat("0",e.dealMonth),e.dealMonth) ,
+                       if(e.dealDay &lt; 10,concat("0",e.dealDay),e.dealDay)),
+                       '%Y-%m') as date
+			        	) between #{start} and #{end} and aptCode = #{aptCode}
+	</select>
+	
+	<delete id="deleteInterestArea" parameterType="InterestArea">
+		delete from interest_area
+		where user_id = #{user_id} and dongCode = #{dongCode}
+	</delete>
+	
+	<select id="selectRecently" parameterType="int" resultType="houseDeal">
+		select *
+		from housedeal
+		order by dealYear desc, dealMonth desc, dealDay desc
+		limit #{qty}
+	</select>
+	
+	<select id="selectHouseInfoByAptCode" parameterType="string" resultType="houseInfo">
+		select * 
+		from houseinfo 
+		where aptCode = #{aptCode}
+	</select>
+		<select id="selectDealCountByYear" parameterType="string"
+		resultType="map">
+		select count,dealYear
+		from deal_count
+		where code =#{code};
+	</select>
+
+	<select id="selectAvgByaptcode" parameterType="map" resultType="aptChart">
+		select RPAD(round(avg(dealAmount),3)*1000,5,0) as dealAmount ,dealYear,dealMonth
+		from housedeal
+		where aptCode = #{aptCode}
+		group by concat(dealYear + "-" + dealMonth);
+	</select>
+
+</mapper>

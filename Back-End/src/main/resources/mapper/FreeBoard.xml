@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.myhome.model.dao.FreeBoardDao">
+	<resultMap type="freeBoard" id="freeBoardDao">
+		<result column="article_no" property="articleNo"/>
+		<result column="user_id" property="userId"/>
+		<result column="subject" property="subject"/>
+		<result column="content" property="content"/>
+		<result column="hit" property="hit"/>
+		<result column="register_time" property="registerTime"/>
+	</resultMap>
+	
+	<resultMap type="comment" id="cmt">
+		<result column="comment_no" property="commentNo"/>
+		<result column="article_no" property="articleNo"/>
+		<result column="comment_group_no" property="commentGroupNo"/>
+		<result column="content" property="content"/>
+		<result column="cuser_id" property="cuserId"/>
+		<result column="comment_date" property="commentDate"/>
+		<result column="position" property="position"/>
+		<result column="depth" property="depth"/>
+		<result column="parent_comment_no" property="parentCommentNo"/>
+	</resultMap>
+	
+	<resultMap type="freeBoard" id="freeBoardCmt" extends="freeBoardDao">
+		<collection property="comments" column="article_no" javaType="list" ofType="cmt" select="selectAllComment"/>
+	</resultMap>
+	
+	
+	<insert id="regist" parameterType="freeBoard">
+		insert into freeBoard(user_id, subject, content)
+		values (#{userId},#{subject},#{content})
+	</insert>
+
+	<update id="modify" parameterType="freeBoard">
+		update freeBoard set
+		subject=#{subject}, content=#{content}
+		where user_id=#{userId} and article_no=#{articleNo}
+	</update>
+
+	<delete id="delete" parameterType="int">
+		delete from freeBoard where article_no = #{articleNo}
+	</delete>
+
+	<select id="list" parameterType="pagenation" resultMap="freeBoardDao">
+		select * 
+		from freeBoard 
+		<where>
+			<if test='searchScope.equals("subject")'>
+				subject like #{searchParam}
+			</if>
+			<if test='searchScope.equals("userId")'>
+				user_id like #{searchParam}
+			</if>
+		</where>
+		order by article_no desc
+		limit #{startColumn}, #{endColumn}  
+	</select>
+
+	<select id="totalCount" parameterType="searchParam" resultType="int">
+		select count(*)
+		from freeBoard
+		<where>
+			<if test='searchScope.equals("subject")'>
+				subject like #{searchParam}
+			</if>
+			<if test='searchScope.equals("userId")'>
+				user_id = #{searchParam}
+			</if>
+		</where>  
+	</select>
+
+	<select id="detail" parameterType="int" resultMap="freeBoardCmt">
+		select * 
+		from freeBoard 
+		where article_no=#{articleNo}
+	</select>
+
+	<update id="hit" parameterType="int">
+		update freeBoard
+		set hit=hit+1 where article_no=#{articleNo}
+	</update>
+
+	<select id="search" parameterType="searchParam" resultMap="freeBoardDao">
+		select * 
+		from freeBoard
+		<where>
+			<if test='searchScope.equals("subject")'>
+				subject like #{searchData}
+			</if>
+			<if test='searchScope.equals("userId")'>
+				user_id = #{searchData}
+			</if>
+		</where>  
+		order by article_no desc
+	</select>
+	
+	<select id="select" parameterType="int" resultMap="freeBoardDao">
+		select *
+		from freeBoard
+		where article_no = ${articleNo}
+	</select>
+	
+	<select id="selectAllComment" parameterType="int" resultMap="cmt">
+		select *
+		from comment
+		where article_no= ${articleNo}
+		order by comment_group_no , position
+	</select>
+
+	<insert id="insertComment" parameterType="comment">
+		insert into comment (article_no,
+							comment_group_no,
+							content,
+							cuser_id,
+							comment_date,
+							position,
+							depth,
+							parent_comment_no)
+		values
+				(
+				#{articleNo},
+				#{commentGroupNo},
+				#{content},
+				#{cuserId},
+				now(),
+				<if test='parentCommentNo != 0'>
+				(
+	                  select ifnull(max((
+                                    select min(c.position)-1
+                                    from comment c
+                                    where c.comment_group_no=#{commentGroupNo} and c.depth&lt;=#{depth}-1 and c.position > #{position} and article_no = #{articleNo}
+                                    )) 
+                                    ,
+                                    (
+                                    select max(cc.position)+1
+                                    from comment cc
+                                    where cc.comment_group_no=#{commentGroupNo} and cc.depth>=#{depth}-1 and article_no = #{articleNo}
+                                    )) as position
+                    from comment cmt
+                    where cmt.article_no = #{articleNo}
+                    limit 1
+				),
+				</if>
+				<if test='parentCommentNo == 0'>
+				#{position},
+				</if>
+				#{depth},
+				#{parentCommentNo}
+				)
+	</insert>
+	<update id="updateOrder" parameterType="comment">
+		update comment
+		set position=position+1
+		where position >= ( 
+								select tmp.position 
+								from (
+				                  select ifnull(max((
+			                                    select min(c.position)
+			                                    from comment c
+			                                    where c.comment_group_no=#{commentGroupNo} and c.depth&lt;=#{depth}-1 and c.position > #{position} and article_no = #{articleNo}
+			                                    )) 
+			                                    ,
+			                                    (
+			                                    select max(cc.position)+1
+			                                    from comment cc
+			                                    where cc.comment_group_no=#{commentGroupNo} and cc.depth>=#{depth}-1 and article_no = #{articleNo}
+			                                    )) as position
+			                    from comment cmt
+			                    limit 1
+								) tmp
+							) and comment_group_no = #{commentGroupNo} and article_no = #{articleNo}
+	</update>
+	
+	<update id="deleteOrder" parameterType="int">
+	 update comment
+	 set position=position-1
+	 where position > (
+	 					select tmp.position
+	 					from (
+			 					select cmt.position
+			 					from comment cmt
+			 					where cmt.comment_no= #{commentNo}
+			 					and cmt.comment_group_no = (
+				 											select c.comment_group_no
+				 											from comment c
+				 											where c.comment_no= #{commentNo}
+				 											) 
+			 				) tmp
+	 				)
+	</update>
+	
+	<update id="updateComment" parameterType="comment">
+		update comment
+		set content=#{content}, comment_date = now()
+		where comment_no=#{commentNo}
+	</update>
+	
+	<delete id="deleteComment" parameterType="int">
+		delete from comment
+		where comment_no = #{commentNo} 
+	</delete>
+	
+	<select id="haveChild" parameterType="int" resultMap="cmt">
+		select *
+		from comment
+		where parent_comment_no = #{commentNo}
+	</select>
+	
+	<delete id="deleteArticleComment" parameterType="int">
+		delete from comment
+		where article_no = #{article_no}
+	</delete>
+</mapper>
